@@ -1,0 +1,159 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GREY | Denial Intelligence</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#10151f;color:#eef2f7;font-family:Arial,sans-serif;padding:22px}
+header{padding:20px 0;border-bottom:1px solid #30394a}
+.brand{font-size:28px;font-weight:800;letter-spacing:4px}
+.sub{color:#9aa8bb;margin-top:7px}
+h2{font-size:19px;margin-top:30px}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}
+.card{background:#1b2533;border:1px solid #303d50;border-radius:12px;padding:17px}
+.card small{color:#aab6c7}
+.value{font-size:27px;font-weight:bold;margin-top:12px}
+.panel{background:#1b2533;border:1px solid #303d50;border-radius:12px;padding:17px;margin-top:16px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:12px 7px;border-bottom:1px solid #354052}
+th{color:#9eacc0}
+select,input,button{background:#253246;color:white;border:1px solid #45546a;border-radius:7px;padding:11px;margin:5px 4px 5px 0}
+button{background:#315de0;border:0;font-weight:bold}
+.bar{height:12px;background:#344258;border-radius:10px;margin:9px 0 16px;overflow:hidden}
+.fill{height:100%;background:#6689ff;border-radius:10px}
+.muted{color:#9eacc0;font-size:12px;line-height:1.6}
+footer{margin-top:30px;color:#8593a8;font-size:12px}
+</style>
+</head>
+<body>
+
+<header>
+<div class="brand">GREY</div>
+<div class="sub">DENIAL INTELLIGENCE | RCM ANALYTICS</div>
+</header>
+
+<h2>Executive Overview</h2>
+<p class="muted">Healthcare Revenue Cycle Management Analytics</p>
+
+<div class="metrics">
+<div class="card">
+<small>Total Denied Claims</small>
+<div class="value" id="claims">1,250</div>
+</div>
+<div class="card">
+<small>Total Denied Amount</small>
+<div class="value" id="amount">$245K</div>
+</div>
+<div class="card">
+<small>Payers Analysed</small>
+<div class="value">5</div>
+</div>
+<div class="card">
+<small>Denial Categories</small>
+<div class="value">5</div>
+</div>
+</div>
+
+<div class="panel">
+<h2>Upload Denial Data</h2>
+<p class="muted">Upload a CSV with columns: payer, denial_reason, amount, date</p>
+<input type="file" id="file" accept=".csv">
+<button onclick="downloadReport()">Export Summary</button>
+<p class="muted" id="status">Showing illustrative synthetic sample data.</p>
+</div>
+
+<div class="panel">
+<h2>Denials by Category</h2>
+<div id="categories"></div>
+</div>
+
+<div class="panel">
+<h2>Payer Analysis</h2>
+<table>
+<thead><tr><th>Payer</th><th>Claims</th><th>Amount</th></tr></thead>
+<tbody id="payers"></tbody>
+</table>
+</div>
+
+<div class="panel">
+<h2>Denial Records</h2>
+<input id="search" placeholder="Search payer or reason..." oninput="render()">
+<table>
+<thead><tr><th>Payer</th><th>Reason</th><th>Amount</th></tr></thead>
+<tbody id="records"></tbody>
+</table>
+</div>
+
+<footer>
+GREY Intelligence · Prototype v1.0<br>
+Synthetic demonstration data only. Not for clinical or claims decisions.
+</footer>
+
+<script>
+const sample=[
+["Aetna","Authorization",42000],
+["Aetna","Eligibility",18000],
+["UnitedHealthcare","Medical Necessity",51000],
+["UnitedHealthcare","Authorization",22000],
+["Cigna","Coding",16000],
+["Cigna","Timely Filing",12000],
+["BCBS","Authorization",28000],
+["BCBS","Eligibility",14000],
+["Humana","Medical Necessity",31000],
+["Humana","Coding",11000]
+];
+let data=sample.map((x,i)=>({payer:x[0],reason:x[1],amount:x[2],date:"2026-10-"+String(i+1).padStart(2,"0")}));
+
+function money(n){return "$"+Math.round(n).toLocaleString("en-US")}
+function render(){
+const q=document.getElementById("search").value.toLowerCase();
+const rows=data.filter(x=>(x.payer+" "+x.reason).toLowerCase().includes(q));
+const total=data.reduce((s,x)=>s+x.amount,0);
+document.getElementById("claims").textContent=data.length.toLocaleString();
+document.getElementById("amount").textContent=money(total);
+const cats={},pays={};
+data.forEach(x=>{
+cats[x.reason]=(cats[x.reason]||0)+x.amount;
+if(!pays[x.payer])pays[x.payer]={count:0,amount:0};
+pays[x.payer].count++;pays[x.payer].amount+=x.amount;
+});
+document.getElementById("categories").innerHTML=
+Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([name,val])=>
+`<div>${name} <b style="float:right">${money(val)}</b></div><div class="bar"><div class="fill" style="width:${total?val/total*100:0}%"></div></div>`).join("");
+document.getElementById("payers").innerHTML=
+Object.entries(pays).map(([name,v])=>`<tr><td>${name}</td><td>${v.count}</td><td>${money(v.amount)}</td></tr>`).join("");
+document.getElementById("records").innerHTML=rows.map(x=>
+`<tr><td>${x.payer}</td><td>${x.reason}</td><td>${money(x.amount)}</td></tr>`).join("");
+}
+document.getElementById("file").addEventListener("change",async e=>{
+const file=e.target.files[0];if(!file)return;
+const lines=(await file.text()).trim().split(/\r?\n/);
+const headers=lines[0].split(",").map(x=>x.trim().toLowerCase());
+const pi=headers.indexOf("payer"),ri=headers.indexOf("denial_reason"),ai=headers.indexOf("amount"),di=headers.indexOf("date");
+if([pi,ri,ai,di].some(x=>x<0)){alert("CSV needs payer, denial_reason, amount and date columns.");return;}
+const parsed=[];
+lines.slice(1).forEach(line=>{
+const cells=line.split(",");
+const amount=Number(cells[ai]?.replace(/[$,]/g,""));
+if(cells.length>=headers.length&&cells[pi]&&cells[ri]&&Number.isFinite(amount))
+parsed.push({payer:cells[pi].trim(),reason:cells[ri].trim(),amount,date:cells[di].trim()});
+});
+if(!parsed.length){alert("No valid records found.");return;}
+data=parsed;
+document.getElementById("status").textContent="Loaded "+data.length+" records from "+file.name;
+render();
+});
+function downloadReport(){
+const total=data.reduce((s,x)=>s+x.amount,0);
+const lines=["GREY DENIAL INTELLIGENCE","Total records,"+data.length,"Total denied amount,"+total,"","Payer,Denial Reason,Amount,Date",...data.map(x=>[x.payer,x.reason,x.amount,x.date].join(","))];
+const blob=new Blob([lines.join("\n")],{type:"text/csv"});
+const url=URL.createObjectURL(blob);
+const a=document.createElement("a");a.href=url;a.download="grey-denial-report.csv";a.click();URL.revokeObjectURL(url);
+}
+render();
+</script>
+</body>
+</html>
